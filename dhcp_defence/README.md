@@ -32,3 +32,4 @@ DHCP starvation is **not a major threat** to corporate or managed networks due t
 ## Disclamer Sequrity
 - This lab is for **educational and defensive learning only**.
 - Do **not** run these scripts on production networks, public Wi-Fi or any systems you do not own.
+<img width="966" height="585" alt="image" src="https://github.com/user-attachments/assets/30b97ea9-fb28-42fa-a550-8552c3321975" />
