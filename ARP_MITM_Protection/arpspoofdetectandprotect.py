@@ -19,10 +19,10 @@ def detect_arp_spoof(packet, ip, mac) -> None:
 
 
 
-def monitor_arp(interface) -> None:
+def monitor_arp(interface,ip, mac) -> None:
 	print("[INFO] Starting ARP Spoofing Detection ... on" + interface)
-	restore_arp(ROUTER_IP, ROUTER_MAC)
-	sniff(iface=interface, filter="arp", store=0, prn=detect_arp_spoof)
+	restore_arp(ip, mac)
+	sniff(iface=interface, filter="arp", store=0, prn=lambda pkt: detect_arp_spoof(pkt, ip, mac))
 
 
 if __name__ == "__main__":
@@ -30,6 +30,6 @@ if __name__ == "__main__":
 	ROUTER_MAC = ""
 	interface = "eth0"
 	try:
-		monitor_arp(interface)
+		monitor_arp(interface, ROUTER_IP, ROUTER_MAC)
 	except KeyboardInterrupt:
 		print("[INFO] Stopping ARP Spoof Protection script.")
