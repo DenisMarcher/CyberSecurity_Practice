@@ -1,43 +1,62 @@
-from scapy.all import sniff, DHCP
-from collections import defaultdict
-import time
+from __future__ import annotations
 
-THRESHOLD_PER_SECOND = 20        #how much discover too much and sussy
-OBSERVATION_WINDOW = 5           #per 5 last second
+import time
+from collections import defaultdict
+from typing import List
+from scapy.all import sniff, DHCP, Packet  # type: ignore
+
+PER_MAC_THRESHOLD = 20       # DHCP DISCOVER per second per MAC
+GLOBAL_THRESHOLD = 100       # DHCP DISCOVER per second across network
+WINDOW = 5                   # seconds
 
 discover_log = defaultdict(list)
+global_log: List[float] = []
 
-def dhcp_monitor(pkt):
-    if pkt.haslayer(DHCP):
-        options = pkt[DHCP].options
 
-        # searching for "message-type: discover"
-        for opt in options:
-            if isinstance(opt, tuple) and opt[0] == "message-type" and opt[1] == 1:
-                timestamp = time.time()
-                mac = pkt.src
+def dhcp_monitor(pkt: Packet) -> None:
+    if not pkt.haslayer(DHCP):
+        return
 
-                discover_log[mac].append(timestamp)
-                cleanup_old_events(mac)
+    for opt in pkt[DHCP].options:
+        if isinstance(opt, tuple) and opt[0] == "message-type" and opt[1] == 1:
+            ts = time.time()
+            mac = pkt.src
 
-                check_anomaly(mac)
-                break
+            discover_log[mac].append(ts)
+            global_log.append(ts)
 
-def cleanup_old_events(mac):
-    #cleaning our log list for relevant 
-    cutoff = time.time() - OBSERVATION_WINDOW
+            cleanup(mac)
+            check_mac(mac)
+            check_global()
+            break
+
+
+def cleanup(mac: str) -> None:
+    cutoff = time.time() - WINDOW
+
     discover_log[mac] = [t for t in discover_log[mac] if t >= cutoff]
+    global global_log
+    global_log = [t for t in global_log if t >= cutoff]
 
-def check_anomaly(mac):
+
+def check_mac(mac: str) -> None:
     events = len(discover_log[mac])
+    rate = events / WINDOW
 
-    if events >= THRESHOLD_PER_SECOND * OBSERVATION_WINDOW:
-        print(f"WARNING Possible DHCP starvation attempt")
-        print(f"MAC: {mac}, packets: {events} in last {OBSERVATION_WINDOW}")
-
+    if rate >= PER_MAC_THRESHOLD:
+        print(f"[!] PER-MAC anomaly: {mac} -> {events} / {WINDOW}s (~{rate:.1f}/s)")
     else:
-        print(f"[INFO] DHCP Discover from {mac} (count={events})")
+        print(f"[+] {mac}: {events} / {WINDOW}s (~{rate:.1f}/s)")
+
+
+def check_global() -> None:
+    events = len(global_log)
+    rate = events / WINDOW
+
+    if rate >= GLOBAL_THRESHOLD:
+        print(f"[!] GLOBAL anomaly: {events} / {WINDOW}s (~{rate:.1f}/s)")
+
 
 if __name__ == "__main__":
-    print("Starting DHCP starvation detector...")
-    sniff(filter="udp and (port 67 or port 68)", prn=dhcp_monitor, store=0)
+    print("DHCP Starvation detector running...")
+    sniff(filter="udp and (port 67 or 68)", prn=dhcp_monitor, store=0)
